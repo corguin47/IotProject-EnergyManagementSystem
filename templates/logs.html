@@ -1,0 +1,150 @@
+{% extends "layout.html" %}
+{% block title %}Logs - Energy Management System{% endblock %}
+
+{% block content %}
+<style>
+    /* CSS styles for the log page */
+    #log-type-select {
+        margin-bottom: 10px;
+    }
+
+    #actuator-dropdown,
+    #sensor-dropdown {
+        margin-bottom: 10px;
+    }
+
+    .log-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .log-table th,
+    .log-table td {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+    }
+
+    .log-table th {
+        background-color: #f2f2f2;
+    }
+</style>
+<div>
+    <label for="log-type-select">Log Type:</label>
+    <select id="log-type-select" onchange="showDropdown()">
+        <option value="all">All</option>
+        <option value="actuators">Actuators</option>
+        <option value="sensors">Sensors</option>
+    </select>
+</div>
+
+<div id="actuator-dropdown" style="display: none;">
+    <label for="actuator-select">Actuator Type:</label>
+    <select id="actuator-select" onchange="fetchLogs('actuator')">
+        <option value="LCD">LCD</option>
+        <option value="fan">Fan</option>
+        <option value="redLED">Red LED</option>
+        <option value="yellowLED">Yellow LED</option>
+        <option value="greenLED">Green LED</option>
+    </select>
+</div>
+
+<div id="sensor-dropdown" style="display: none;">
+    <label for="sensor-select">Sensor Type:</label>
+    <select id="sensor-select" onchange="fetchLogs('sensor')">
+        <option value="temp_sensor">Temperature</option>
+        <option value="light_sensor">Light</option>
+        <option value="PIR">Motion</option>
+    </select>
+</div>
+
+
+<div id="sensor-dropdown" style="display: none;">
+    <label for="sensor-select">Sensor Type:</label>
+    <select id="sensor-select" onchange="fetchLogs('sensor')">
+        <option value="temperature">Temperature</option>
+        <option value="light">Light</option>
+        <option value="motion">Motion</option>
+    </select>
+</div>
+
+<div id="log-table-container"></div>
+
+<script>
+    document.getElementById('log-type-select').addEventListener('change', function() {
+        showDropdown();
+        // Fetch logs based on selected type when log type changes
+        var selectedLogType = document.getElementById('log-type-select').value;
+        if (selectedLogType === 'actuators') {
+            fetchLogs('actuator');
+        } else if (selectedLogType === 'sensors') {
+            fetchLogs('sensor');
+        } else {
+            // If "All" is selected, fetch all logs
+            fetchAllLogs();
+        }
+    });
+
+    function showDropdown() {
+        var logType = document.getElementById('log-type-select').value;
+        if (logType === 'actuators') {
+            document.getElementById('actuator-dropdown').style.display = 'block';
+            document.getElementById('sensor-dropdown').style.display = 'none';
+        } else if (logType === 'sensors') {
+            document.getElementById('actuator-dropdown').style.display = 'none';
+            document.getElementById('sensor-dropdown').style.display = 'block';
+        } else {
+            document.getElementById('actuator-dropdown').style.display = 'none';
+            document.getElementById('sensor-dropdown').style.display = 'none';
+        }
+    }
+
+    function fetchLogs(type) {
+        var logType = type === 'actuator' ? document.getElementById('actuator-select').value : document.getElementById('sensor-select').value;
+        // Fetch logs based on selected type
+        fetch('/get_logs?type=' + type + '&log_type=' + logType)
+        .then(response => response.json())
+        .then(data => {
+            renderLogs(data);
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Function to fetch all logs
+    function fetchAllLogs() {
+        fetch('/get_logs?type=all&log_type=all')
+        .then(response => response.json())
+        .then(data => {
+            renderLogs(data);
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function renderLogs(logs) {
+        var tableHtml = '<table class=log-table>';
+        tableHtml += '<tr><th>ID</th><th>Device/Sensor</th><th>Status / Value</th><th>Recorded Time</th></tr>';
+        logs.forEach(function(log) {
+            tableHtml += '<tr>';
+            tableHtml += '<td>' + log.id + '</td>';
+            tableHtml += '<td>' + log.device_sensor + '</td>';
+            tableHtml += '<td>' + (log.status ? log.status : log.value) + '</td>';
+            tableHtml += '<td>' + log.timestamp + '</td>';
+            tableHtml += '</tr>';
+        });
+        tableHtml += '</table>';
+        document.getElementById('log-table-container').innerHTML = tableHtml;
+    }
+    
+    window.onload = function() {
+        var selectedLogType = document.getElementById('log-type-select').value;
+        if (selectedLogType === 'actuators') {
+            fetchLogs('actuator');
+        } else if (selectedLogType === 'sensors') {
+            fetchLogs('sensor');
+        } else {
+            fetchAllLogs();
+        }
+    };
+</script>
+
+{% endblock %}

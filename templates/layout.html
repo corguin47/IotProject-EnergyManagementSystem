@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Energy Management System{% endblock %}</title>
+    <style>
+        /* CSS styles for header */
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* CSS styles for navigation */
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+
+        nav ul li a {
+            color: #fff;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        nav ul li a:hover {
+            font-size: 1.2em; /* Enlarge the font size by 20% */
+        }
+
+        /* CSS styles for footer */
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header section -->
+    <header>
+        <h1>Energy Management System</h1>
+        <nav>
+            <ul>
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/settings">Appliances Settings</a></li>
+                <li><a href="/logs">Logs</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main content section -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer section -->
+    <footer>
+        <p>&copy; 2024 Energy Management System - SWE30011</p>
+    </footer>
+
+</body>
+</html>

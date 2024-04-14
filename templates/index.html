@@ -1,0 +1,557 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard - Energy Management System{% endblock %}
+
+{% block content %}
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #fff1e8;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+input[type="text"],
+select,
+button {
+    width: 5%;
+    padding: 8px;
+    margin: 0 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.led-control {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.led-control select {
+    width: 120px;
+}
+
+#motion-detected, #temperature, #light {
+    margin-bottom: 10px;
+}
+
+</style>
+    <div>
+        <label for="red-led-select">Red LED Control:</label>
+        <select id="red-led-select" onchange="updateLED('red')">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="yellow-led-select">Yellow LED Control:</label>
+        <select id="yellow-led-select" onchange="updateLED('yellow')">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="green-led-select">Green LED Control:</label>
+        <select id="green-led-select" onchange="updateLED('green')">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="lcd-select">LCD Control:</label>
+        <select id="lcd-select" onchange="updateLCD()">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="fan-select">Fan Control:</label>
+        <select id="fan-select" onchange="updateFan()">
+            <option value="Off">Off</option>
+            <option value="1">Speed 1</option>
+            <option value="2">Speed 2</option>
+            <option value="3">Speed 3</option>
+        </select>
+    </div>
+    
+    <!-- Placeholder for motion detection -->
+    <div><label>Motion detected:</label> <span id="motion-detected">Loading...</span></div>
+
+    <!-- Placeholder for temperature -->
+    <div><label>Temperature</label>: <span id="temperature">Loading...</span></div>
+
+    <!-- Placeholder for light -->
+    <div><label>Light</label>: <span id="light">Loading...</span></div>
+    
+    <div>
+        <label for="adaptive-control-select">Adaptive Control:</label>
+        <select id="adaptive-control-select" onchange="toggleAdditionalFields()">
+            <option value="Off">Off</option>
+            <option value="On">On</option>
+        </select>
+    </div>
+    
+    <div id="additional-fields" style="display: none;">
+		<div>
+        <label>Adaptive Control Mode:</label>
+        <div>
+            <input type="radio" id="custom-control" name="adaptive-mode" value="Custom" onchange="toggleCustomMode()">
+            <label for="custom-control">Custom</label>
+            <input type="radio" id="automated-control" name="adaptive-mode" value="Automated" onchange="toggleCustomMode()">
+            <label for="automated-control">Automated</label>
+        </div>
+    </div>
+		<p>Put both LED times at 0000 for automated light sensoring (using photoresistor)</p>
+        <div>
+            <label for="on-time-led-input">Open LED at (24 hour format, e.g. 0800):</label>
+            <input type="text" id="on-time-led-input">
+        </div>
+        
+        <div>
+            <label for="off-time-led-input">Close LED at:</label>
+            <input type="text" id="off-time-led-input">
+        </div>
+        
+        <div>
+            <label for="temp-fan-low-input">Temperature (degree Celsius) for low speed fan:</label>
+            <input type="text" id="temp-fan-low-input">
+        </div>
+        
+        <div>
+            <label for="temp-fan-high-input">Temperature (degree Celsius) for high speed fan:</label>
+            <input type="text" id="temp-fan-high-input">
+        </div>
+        
+        <div>
+            <label for="motion-appliances-input">Close appliances if no motion is detected for:</label>
+            <input type="text" id="motion-appliances-input">
+        </div>
+        
+        <button onclick="resetToDefault()">Reset</button>
+    </div>
+		
+    <script>
+		var automatedControlInterval;
+		
+		function toggleAdditionalFields() {
+            var adaptiveControlValue = document.getElementById('adaptive-control-select').value;
+            var additionalFieldsDiv = document.getElementById('additional-fields');
+            if (adaptiveControlValue === 'On') {
+                additionalFieldsDiv.style.display = 'block';
+                updateAdaptiveControlStatus('On');
+                fetchAdaptiveControlData();
+                disableControls(true);
+            } else {
+                additionalFieldsDiv.style.display = 'none';
+                updateAdaptiveControlStatus('Off');
+                disableControls(false);
+                clearInterval(automatedControlInterval);
+				automatedControlInterval = undefined; // Reset the variable
+            }
+        }
+        
+        function updateAdaptiveControlStatus(status) {
+			fetch('/update_adaptive_control_status', {
+					method: 'POST',
+					headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ 'status': status }),
+			})
+			.then(response => response.json())
+			.then(data => {
+				// console.log('Adaptive Control status updated:', data);
+			})
+			.catch(error => {
+				console.error('Error updating Adaptive Control status:', error);
+			});
+		}
+        
+        function updateLED(color) {
+            var ledStatus = document.getElementById(color + '-led-select').value;
+			sendData('/control_led', { 'led': color, 'status': ledStatus });
+        }
+        
+        function updateLCD() {
+            var lcdValue = document.getElementById('lcd-select').value;
+            sendData('/control_lcd', { 'lcd': lcdValue });
+        }
+        
+        function updateFan() {
+            var fanValue = document.getElementById('fan-select').value;
+            sendData('/control_fan', { 'fan': fanValue });
+        }
+
+        function sendData(url, data) {
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+        
+		document.addEventListener("DOMContentLoaded", function() {
+		// Fetch initial LED states
+		fetchInitialLEDState('red');
+		fetchInitialLEDState('yellow');
+		fetchInitialLEDState('green');
+    
+		// Fetch initial LCD state
+		fetchInitialLCDState();
+    
+		// Fetch initial fan state
+		fetchInitialFanState();
+		
+		// Fetch initial param database details (for adaptive controls)
+        fetchInitialParamDetails();
+        
+        fetchAdaptiveControlData();
+		
+		document.getElementById('on-time-led-input').addEventListener('input', function() {
+			updateAdaptiveControlData('onTimeLED', this.value);
+		});
+
+		document.getElementById('off-time-led-input').addEventListener('input', function() {
+			updateAdaptiveControlData('offTimeLED', this.value);
+		});
+
+		document.getElementById('temp-fan-low-input').addEventListener('input', function() {
+			updateAdaptiveControlData('tempFanLow', this.value);
+		});
+
+		document.getElementById('temp-fan-high-input').addEventListener('input', function() {
+			updateAdaptiveControlData('tempFanHigh', this.value);
+		});
+
+		document.getElementById('motion-appliances-input').addEventListener('input', function() {
+			updateAdaptiveControlData('motionAppliances', this.value);
+		});
+			});
+
+	function fetchInitialLEDState(color) {
+		fetch('/get_led_state/' + color)
+		.then(response => response.json())
+		.then(data => {
+			document.getElementById(color + '-led-select').value = data.status;
+		})
+		.catch(error => console.error('Error:', error));
+	}
+
+	function fetchInitialLCDState() {
+		fetch('/get_lcd_state')
+		.then(response => response.json())
+		.then(data => {
+			document.getElementById('lcd-select').value = data.status;
+		})
+		.catch(error => console.error('Error:', error));
+	}
+
+	function fetchInitialFanState() {
+		fetch('/get_fan_state')
+		.then(response => response.json())
+		.then(data => {
+			document.getElementById('fan-select').value = data.status;
+		})
+		.catch(error => console.error('Error:', error));
+	}
+	
+
+        // Function to fetch initial param database details
+        function fetchInitialParamDetails() {
+            // Fetch motion detection state
+            fetch('/get_motion_detection_state')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('motion-detected').textContent = data.motion_detected ? 'Yes' : 'No';
+            })
+            .catch(error => console.error('Error:', error));
+
+            // Fetch temperature
+            fetch('/get_temperature')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('temperature').textContent = data.temperature + " degree Celsius";
+            })
+            .catch(error => console.error('Error:', error));
+
+            // Fetch light
+            fetch('/get_light')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('light').textContent = data.light;
+            })
+            .catch(error => console.error('Error:', error));   
+        }
+        
+        function updateAdaptiveControlData(dataName, dataValue) {
+		fetch('/update_adaptiveControlData', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ paramName: dataName, paramValue: dataValue })
+		})
+		.then(response => response.json())
+		.then(data => {
+			console.log('Parameter updated:', data);
+		})
+		.catch(error => {
+			console.error('Error updating parameter:', error);
+		});
+	}
+        
+        function fetchAdaptiveControlData() {
+        fetch('/get_adaptive_control')
+			.then(response => response.json())
+			.then(data => {
+				// Set adaptive control to select value
+				var adaptiveControlSelect = document.getElementById('adaptive-control-select');
+				for (var i = 0; i < adaptiveControlSelect.options.length; i++) {
+					if (adaptiveControlSelect.options[i].value === data.adaptiveControl) {
+						adaptiveControlSelect.selectedIndex = i;
+						break;
+					}
+				}
+				
+				// Set adaptive control mode radio button
+				var adaptiveControlModeSelect = document.getElementsByName('adaptive-mode');
+				for (var j = 0; j < adaptiveControlModeSelect.length; j++) {
+					if (adaptiveControlModeSelect[j].value === data.adaptiveControlMode) {
+						adaptiveControlModeSelect[j].checked = true;
+						break;
+					}
+				}
+				
+				clearInterval(automatedControlInterval);
+				automatedControlInterval = undefined;
+				
+				if (data.adaptiveControlMode === 'Automated'){
+					disableAdaptiveFields(true);
+					//automatedControlInterval = setInterval(automatedAdaptiveSettingsFromLogs, 21600000); // Run every 6 hours
+					//automatedAdaptiveSettingsFromLogs();
+				}
+				else {
+					disableAdaptiveFields(false);
+				}
+				
+				// Set additional fields values if adaptive control is On
+				if (data.adaptiveControl === 'On') {
+					var additionalFieldsDiv = document.getElementById('additional-fields');
+					additionalFieldsDiv.style.display = 'block';
+					document.getElementById('on-time-led-input').value = data.onTimeLED;
+					document.getElementById('off-time-led-input').value = data.offTimeLED;
+					document.getElementById('temp-fan-low-input').value = data.tempFanLow;
+					document.getElementById('temp-fan-high-input').value = data.tempFanHigh;
+					document.getElementById('motion-appliances-input').value = data.motionAppliances;
+				}
+				toggleAdditionalFields();
+			})
+			.catch(error => console.error('Error:', error));
+    }
+    
+		function resetToDefault() {
+            // Reset input fields for adaptive control data
+            document.getElementById('on-time-led-input').value = '0800';
+            document.getElementById('off-time-led-input').value = '1700';
+            document.getElementById('temp-fan-low-input').value = '30';
+            document.getElementById('temp-fan-high-input').value = '35';
+            document.getElementById('motion-appliances-input').value = 'Off';
+            updateAdaptiveControlData('onTimeLED', '0800');
+            updateAdaptiveControlData('offTimeLED', '1700');
+            updateAdaptiveControlData('tempFanLow', '30');
+            updateAdaptiveControlData('tempFanHigh', '35');
+            updateAdaptiveControlData('motionAppliances', 'Off');
+        }
+        
+        function disableControls(disable) {
+        document.getElementById('red-led-select').disabled = disable;
+        document.getElementById('yellow-led-select').disabled = disable;
+        document.getElementById('green-led-select').disabled = disable;
+        document.getElementById('lcd-select').disabled = disable;
+        document.getElementById('fan-select').disabled = disable;
+	}
+        
+        function disableAdaptiveFields(disable) {
+            document.getElementById('on-time-led-input').disabled = disable;
+            document.getElementById('off-time-led-input').disabled = disable;
+            document.getElementById('temp-fan-low-input').disabled = disable;
+            document.getElementById('temp-fan-high-input').disabled = disable;
+            document.getElementById('motion-appliances-input').disabled = disable;
+        }
+        
+        function toggleCustomMode() {
+			var customControlChecked = document.getElementById('custom-control').checked;
+			var additionalFieldsDiv = document.getElementById('additional-fields');
+    
+			// Clear the interval if it's defined
+			clearInterval(automatedControlInterval);
+			automatedControlInterval = undefined; // Reset the variable
+    
+			if (customControlChecked) {
+				updateAdaptiveControlData('adaptiveControlMode', 'Custom');
+				disableAdaptiveFields(false); // Enable controls for custom mode
+			} else {
+				updateAdaptiveControlData('adaptiveControlMode', 'Automated');
+				disableAdaptiveFields(true); // Disable controls for automated mode
+		
+				// Initialize automatedControlInterval and start the interval
+				//automatedControlInterval = setInterval(automatedAdaptiveSettingsFromLogs, 21600000); 
+				//automatedAdaptiveSettingsFromLogs();
+			}
+		}
+
+        // Function to format timestamp as HHMM (24-hour format)
+        function formatTime(timestamp) {
+            // Regular expression pattern to match hours and minutes in the timestamp string
+            var pattern = /(\d{2}):(\d{2})/;
+
+            // Extract hours and minutes using regex
+            var match = timestamp.match(pattern);
+            if (match) {
+                var hours = match[1];
+                var minutes = match[2];
+                return hours + minutes; // Concatenate hours and minutes
+            }
+        }
+
+        
+         // Function to process past logs and automate the system based on the user's past usage
+        function automatedAdaptiveSettingsFromLogs() {
+            fetch('/automated_adaptive_settings_from_logs')
+                .then(response => response.json())
+                .then(data => {
+                    // Process the data and automate the system based on past logs
+                    console.log('Automated adaptive settings processed:', data);
+
+                    // logic for the data handled
+                    // LEDs
+                    var earliest_on = null;
+                    var latest_off = null;
+
+                    // Compare red LED logs
+                    if (data.red_led && data.red_led.first_log && data.red_led.last_log) {
+                        earliest_on = data.red_led.first_log.timestamp;
+                        latest_off = data.red_led.last_log.timestamp;
+                    }
+
+                    // Compare yellow LED logs
+                    if (data.yellow_led && data.yellow_led.first_log && data.yellow_led.last_log) {
+                        if (!earliest_on || data.yellow_led.first_log.timestamp < earliest_on) {
+                            earliest_on = data.yellow_led.first_log.timestamp;
+                        }
+                        if (!latest_off || data.yellow_led.last_log.timestamp > latest_off) {
+                            latest_off = data.yellow_led.last_log.timestamp;
+                        }
+                    }
+
+                    // Compare green LED logs
+                    if (data.green_led && data.green_led.first_log && data.green_led.last_log) {
+                        if (!earliest_on || data.green_led.first_log.timestamp < earliest_on) {
+                            earliest_on = data.green_led.first_log.timestamp;
+                        }
+                        if (!latest_off || data.green_led.last_log.timestamp > latest_off) {
+                            latest_off = data.green_led.last_log.timestamp;
+                        }
+                    }
+
+                    // If no logs are available, set default times
+                    if (!earliest_on || !latest_off) {
+                        earliest_on = '0800';
+                        latest_off = '1700';
+
+                        // Update the fields for opening and closing the lights
+                        document.getElementById('on-time-led-input').value = earliest_on;
+                        document.getElementById('off-time-led-input').value = latest_off;
+                    } else {
+                        // Update the fields for opening and closing the lights
+                        document.getElementById('on-time-led-input').value = earliest_on ? formatTime(earliest_on) : '';
+                        document.getElementById('off-time-led-input').value = latest_off ? formatTime(latest_off) : '';
+                    }
+
+                    updateAdaptiveControlData('onTimeLED', document.getElementById('on-time-led-input').value);
+                    updateAdaptiveControlData('offTimeLED', document.getElementById('off-time-led-input').value);
+
+                    // temp
+                    var highest_temp = data.highest_temperature || 30.0; // Default highest temperature
+                    var lowest_temp = data.lowest_temperature || 35.0; // Default lowest temperature
+
+                    // Update the fields for highest and lowest temperatures
+                    document.getElementById('temp-fan-high-input').value = highest_temp;
+                    document.getElementById('temp-fan-low-input').value = lowest_temp;
+
+                    // Update adaptive control data
+                    updateAdaptiveControlData('tempFanHigh', highest_temp);
+                    updateAdaptiveControlData('tempFanLow', lowest_temp);
+
+                    // motion
+                    var motionMinutes = Math.ceil(data.longest_motion_duration / 60);
+                    // If motion duration is less than or equal to 0, set it to 'Off'
+                    if (motionMinutes <= 0) {
+                        motionMinutes = 'Off';
+                    }
+                    document.getElementById('motion-appliances-input').value = motionMinutes;
+
+                    if (motionMinutes !== 'Off') {
+                        updateAdaptiveControlData('motionAppliances', motionMinutes);
+                    }
+                    else {
+                        updateAdaptiveControlData('motionAppliances', 'Off');
+                    }
+                    })
+                .catch(error => console.error('Error processing automated adaptive settings:', error));
+        }
+    
+        // Fetch data initially
+        fetchInitialParamDetails();
+
+        // Fetch data every interval
+        setInterval(fetchInitialParamDetails, 500);
+        
+        // for adaptive data
+        fetch('/get_adaptive_control')
+        .then(response => response.json())
+        .then(data => {
+            // Check if adaptive control is On and mode is Automated
+            if (data.adaptiveControl === 'On' && data.adaptiveControlMode === 'Automated') {
+                // Run the function immediately
+                automatedAdaptiveSettingsFromLogs();
+
+                // Set interval to run the function every 6 hours (21600000 milliseconds)
+                setInterval(automatedAdaptiveSettingsFromLogs, 21600000);
+            }
+        })
+        .catch(error => console.error('Error fetching adaptive control settings:', error));
+        
+     //21600000 // once every 6 hours, if adaptive and automated modes are selected
+    </script>
+{% endblock %}
